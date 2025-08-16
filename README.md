@@ -328,6 +328,217 @@ GitHub Actions will:
 
 By following this guide, you now have a fully automated GitOps pipeline using **Terraform**, **GitHub Actions**, and **ArgoCD**. Your EKS infrastructure is provisioned, and application deployments are automated through ArgoCD.
 
+## Prometheus Setup
+
+```
+Understanding the Prometheus Service URL
+Based on the kubectl get service output you provided, the Prometheus server is exposed via a service named prometheus-server in the monitoring namespace on port 80.
+
+The correct URL to use for the Prometheus data source in Grafana is:
+http://prometheus-server.monitoring.svc.cluster.local
+
+Here's how we construct that URL:
+
+Service Name: The NAME of the service is prometheus-server.
+
+Namespace: The command was run in the monitoring namespace.
+
+Port: The PORT(S) column shows 80:31838/TCP, which means the service is listening on port 80.
+
+The full internal DNS name for a Kubernetes service always follows the format:
+http://<service-name>.<namespace>.svc.cluster.local:<port>
+
+Putting these pieces together gives you the URL to connect Grafana to Prometheus within the cluster.
+
+```
+
+## Grafana SetUp
+```
+Why Is the "Data Sources" Section Empty?
+The "Data Sources" section is empty because your Helm chart likely didn't automatically configure Prometheus. You'll need to manually add it so Grafana knows where to pull metrics from. This is a simple, one-time configuration.
+
+How to Add the Prometheus Data Source
+1. Get the Prometheus Service URL
+You need to find the internal DNS name and port for your Prometheus server.
+Run this command to find the service in the monitoring namespace:
+
+kubectl get service -n monitoring
+
+You'll see a list of services. Look for the Prometheus server service, which is usually named prometheus-server or prometheus. The CLUSTER-IP is the internal IP, and the PORT(S) column will show 9090 (the default Prometheus port).
+
+The internal URL will follow this format: http://<service-name>.<namespace>.svc.cluster.local:<port>. For example: http://prometheus-server.monitoring.svc.cluster.local:9090.
+
+2. Add the Data Source in Grafana
+
+In Grafana, click the Gear icon (Configuration) on the left sidebar.
+
+Select Data Sources.
+
+Click the Add data source button.
+
+In the list, select Prometheus.
+
+3. Configure the Connection
+
+Name: Give your data source a name, like Prometheus or EKS-Prometheus.
+
+URL: Paste the internal URL you found in the previous step (e.g., http://prometheus-server.monitoring.svc.cluster.local:9090).
+
+Leave all other settings at their defaults unless you have a specific reason to change them.
+
+4. Save and Test
+Click Save & Test.
+
+If the connection is successful, you'll see a green "Data source is working" message. You can now go back to the dashboard import steps from my previous response. The new Prometheus data source will be available in the dropdown when you import a dashboard.
+```
+
+## Kubectl commands 
+```
+### Viewing Resources
+
+# Get all pods in the current namespace
+kubectl get pods
+
+# Get all resources in all namespaces
+kubectl get all --all-namespaces
+
+# Get a specific deployment in a specific namespace
+kubectl get deployment my-web-app -n my-namespace
+
+# View resources with detailed output
+kubectl get pods -o wide
+
+# Describe a specific pod
+kubectl describe pod my-web-app-pod
+
+# Describe a specific service
+kubectl describe service my-web-app-service
+
+# Apply a deployment from a YAML file
+kubectl apply -f my-deployment.yaml
+
+# Create a new namespace
+kubectl create namespace production
+
+# Create a secret from literal values
+kubectl create secret generic my-db-secret --from-literal=username=admin --from-literal=password=supersecret
+
+# Delete a specific pod
+kubectl delete pod my-app-pod
+
+# Delete all resources defined in a YAML file
+kubectl delete -f my-deployment.yaml
+
+# Get logs from a pod
+kubectl logs my-app-pod
+
+# Stream logs in real-time
+kubectl logs -f my-app-pod
+
+# Open a bash shell in a pod
+kubectl exec -it my-app-pod -- /bin/bash
+
+# Run a single command inside a pod
+kubectl exec my-app-pod -- ls -l /
+
+# Forward local port 8080 to a pod's port 80
+kubectl port-forward my-app-pod 8080:80
+
+# View your current cluster context
+kubectl config current-context
+
+# List all available contexts
+kubectl config get-contexts
+
+# View CPU and memory usage of all nodes
+kubectl top nodes
+
+# View CPU and memory usage of all pods
+kubectl top pods
+
+# Delete a specific pod
+kubectl delete pod <pod-name>
+
+# Drain a node (safely removes all pods)
+kubectl drain <node-name> --ignore-daemonsets
+
+# Delete a namespace and all its resources
+kubectl delete namespace <namespace-name>
+
+# Manually log into a pod and open a shell
+kubectl exec -it <pod-name> -- /bin/bash
+
+# Log into a specific container within a multi-container pod
+kubectl exec -it <pod-name> -c <container-name> -- /bin/bash
+
+```
+
+```
+Your original error failed to provision volume with StorageClass "gp3" is a clear indication that the IAM role attached to your EKS nodes is missing a key permission. The "EC2 Linux" label is a red herring in this context, as it refers to a different mechanism for cluster authentication.
+
+The most straightforward fix is to add the necessary permissions to the IAM role that your EKS worker nodes use. While IRSA is the best practice for application-specific permissions, fixing the node role is the direct solution for this specific volume provisioning failure.
+
+Go to the AWS IAM console.
+
+Find the role green-eks-node-group-...
+
+Add a new policy or edit an existing one to include the ec2:CreateVolume, ec2:DescribeVolumes, and ec2:AttachVolume actions.
+
+The Kubernetes controller will automatically retry provisioning the volume, and it should succeed after the permissions are in place. -> Edit the terraform code creating role to give ec2 policy that gives right create and delete volumes
+```
+
+```
+## Add Admin access to user account so you add iam access entry to EKS cluster
+
+Okay, I can definitely walk you through how to **temporarily grant** `**AdministratorAccess**` **to your Jenkins IAM role/user in the AWS Console.**  
+**IMPORTANT SECURITY NOTE:** Attaching `AdministratorAccess` grants full permissions to your AWS account. This is **ONLY for debugging purposes** to confirm if your current issue is a permissions problem. **You MUST remove this policy immediately after you confirm the issue is resolved (or not resolved) and before any production deployment.**  
+Here are the step-by-step instructions:  
+**Step 1: Log in to the AWS Management Console**  
+
+1. Open your web browser and go to [https://aws.amazon.com/console/](https://aws.amazon.com/console/).
+2. Log in with your AWS account credentials that have sufficient permissions to modify IAM users/roles (often your root account or another administrator account).
+
+**Step 2: Navigate to the IAM Service**  
+
+1. In the AWS Management Console, use the search bar at the top and type `IAM`.
+2. Select **IAM** from the services list.
+
+**Step 3: Find the Jenkins IAM User or Role**  
+You need to identify the specific IAM entity that your Jenkins pipeline is using to authenticate with AWS. This is the user or role whose `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` you have configured in Jenkins.  
+
+1. On the left-hand navigation pane in IAM, click on either **Users** or **Roles**, depending on whether your Jenkins is configured with an IAM User or an IAM Role.
+    - **Users:** If Jenkins uses an `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` directly for a specific IAM User.
+    - **Roles:** If Jenkins is running on an EC2 instance with an Instance Profile attached (which is a best practice) or assuming a specific role using temporary credentials.
+2. Search for the name of the IAM user or role that Jenkins uses. (e.g., `jenkins-user`, `jenkins-pipeline-role`, etc.).
+3. Click on the name of the identified user or role to go to its summary page.
+
+**Step 4: Attach the** `**AdministratorAccess**` **Policy**  
+
+1. On the user/role's summary page, look for the **"Permissions"** tab.
+2. Click on the **"Add permissions"** button (or "Attach policies directly" if it's a role and it appears).
+3. On the "Add permissions" page, click on **"Attach policies directly"**.
+4. In the search bar, type `AdministratorAccess`.
+5. **Check the checkbox** next to `AdministratorAccess`.
+6. Scroll down and click the **"Next"** button.
+7. Review the changes on the "Review and add permissions" page.
+8. Click **"Add permissions"** (or "Add policy" / "Attach policy").
+
+**Step 5: Run Your Jenkins Pipeline Again**  
+
+1. Go back to your Jenkins dashboard.
+2. Trigger your pipeline build again.
+
+**Step 6: IMPORTANT! Remove** `**AdministratorAccess**` **(Crucial After Testing)**  
+
+- Regardless of whether your pipeline succeeded or failed, once you have completed this test, **you MUST remove the** `**AdministratorAccess**` **policy** from your Jenkins IAM user/role.
+- Go back to the IAM user/role's summary page in the AWS Console.
+- Under the "Permissions" tab, find the `AdministratorAccess` policy you just attached.
+- Check the checkbox next to it and click the **"Remove"** (or "Detach") button.
+- Confirm the removal.
+
+If the pipeline works with `AdministratorAccess`, we'll know it's purely a permissions problem, and we can then work on a more secure, granular set of policies.
+```
+
 ---
 
 📝 Comprehensive Guide
