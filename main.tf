@@ -14,11 +14,6 @@ resource "aws_route_table" "main" {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.main.id
   }
-
-  route {
-    cidr_block = "10.0.0.0/16"
-    gateway_id = "local"
-  }
 }
 
 resource "aws_route_table_association" "subnet_1_association" {
@@ -85,10 +80,9 @@ module "eks" {
       min_size     = 1
       max_size     = 1
       desired_size = 1
-    }
 
-     iam_role_use_name_prefix = false
-     iam_role_name           = "eks-node-role"
+      iam_role_use_name_prefix = false
+      iam_role_name            = "eks-node-role"
 
       iam_role_additional_policies = {
         AmazonEKSWorkerNodePolicy          = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
@@ -96,16 +90,24 @@ module "eks" {
         AmazonEC2ContainerRegistryReadOnly = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
         CloudWatchAgentServerPolicy        = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
       }
+    }
   }
-
- resource "aws_eks_auth" "user_access" {
-  cluster_name = module.eks.cluster_id
-  username     = "terraform-user"
-  userarn      = "arn:aws:iam::970547381447:user/open-environment-bdp4z-admin"
-  groups       = ["system:masters"]
 }
 
+resource "aws_eks_access_entry" "user_access" {
+  cluster_name  = module.eks.cluster_name
+  principal_arn = "arn:aws:iam::970547381447:user/open-environment-bdp4z-admin"
+  type          = "STANDARD"
+}
 
+resource "aws_eks_access_policy_association" "user_access_policy" {
+  cluster_name  = module.eks.cluster_name
+  principal_arn = "arn:aws:iam::970547381447:user/open-environment-bdp4z-admin"
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
 
+  access_scope {
+    type = "cluster"
+  }
 
+  depends_on = [aws_eks_access_entry.user_access]
 }
