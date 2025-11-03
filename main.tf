@@ -96,13 +96,13 @@ module "eks" {
 
 resource "aws_eks_access_entry" "user_access" {
   cluster_name  = module.eks.cluster_name
-  principal_arn = "arn:aws:iam::970547381447:user/open-environment-bdp4z-admin"
+  principal_arn = "arn:aws:iam::<account_id>:user/<username>"
   type          = "STANDARD"
 }
 
 resource "aws_eks_access_policy_association" "user_access_policy" {
   cluster_name  = module.eks.cluster_name
-  principal_arn = "arn:aws:iam::970547381447:user/open-environment-bdp4z-admin"
+  principal_arn = "arn:aws:iam::<account_id>:user/<user_name>"
   policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
 
   access_scope {
