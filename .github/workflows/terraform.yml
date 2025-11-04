@@ -23,6 +23,11 @@ jobs:
     name: Apply Terraform
     runs-on: ubuntu-latest
 
+    # 🔑 MANDATORY: Required for OIDC authentication to generate the JWT
+    permissions:
+    id-token: write
+    contents: read 
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v2
@@ -39,7 +44,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
           # 1. Use the environment variable here
-          aws-region: ${{ env.AWS_REGION }} 
+          aws-region: ${{ secrets.AWS_REGION }} 
           role-session-name: eks-deployment-${{ github.sha }}
       
       # The AWS CLI automatically detects the AWS_REGION environment variable
