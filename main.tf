@@ -16,6 +16,7 @@ resource "aws_route_table" "main" {
   }
 }
 
+#Creating 3 subnets across different availability zones is for high availability and resilience.
 resource "aws_route_table_association" "subnet_1_association" {
   subnet_id      = aws_subnet.subnet_1.id
   route_table_id = aws_route_table.main.id
@@ -96,13 +97,13 @@ module "eks" {
 
 resource "aws_eks_access_entry" "user_access" {
   cluster_name  = module.eks.cluster_name
-  principal_arn = "arn:aws:iam::<account_id>:user/<username>"
+  principal_arn = "arn:aws:iam::820242909862:user/open-environment-jdfdj-admin"
   type          = "STANDARD"
 }
 
 resource "aws_eks_access_policy_association" "user_access_policy" {
   cluster_name  = module.eks.cluster_name
-  principal_arn = "arn:aws:iam::<account_id>:user/<user_name>"
+  principal_arn = "arn:aws:iam::820242909862>:user/open-environment-jdfdj-admin"
   policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
 
   access_scope {
