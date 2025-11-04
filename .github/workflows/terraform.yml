@@ -71,10 +71,7 @@ jobs:
 
     # Destroy EKS Infra
 
-    - name: Terraform Init
-      if: github.event.inputs.action == 'apply' || github.event_name == 'push' || github.event_name == 'pull_request'
-      run: terraform init -reconfigure
-
     - name: Destroy EKS and VPC
       if: github.event.inputs.action == 'destroy'
+      run: terraform init -reconfigure
       run: terraform destroy -auto-approve
