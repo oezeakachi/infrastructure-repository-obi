@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
 
     # 🔑 MANDATORY: Required for OIDC authentication to generate the JWT
-    permissions:
+  permissions:
     id-token: write
     contents: read 
 
