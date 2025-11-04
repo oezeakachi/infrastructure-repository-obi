@@ -22,12 +22,18 @@ jobs:
       with:
         terraform_version: 1.5.6
 
-    - name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v2
+          # Use the configured credentials action
+    - name: Configure AWS Credentials using OIDC
+      uses: aws-actions/configure-aws-credentials@v4
       with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          # 1. Use the environment variable here
+          aws-region: ${{ env.AWS_REGION }} 
+          role-session-name: eks-deployment-${{ github.sha }}
+      
+      # The AWS CLI automatically detects the AWS_REGION environment variable
+    - name: Verify AWS Identity
+      run: aws sts get-caller-identity
 
     - name: Deploy to EKS with ArgoCD
       run: |
