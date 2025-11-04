@@ -62,18 +62,6 @@ jobs:
             exit 1
           fi
 
-      - name: Terraform Init
-        if: github.event.inputs.action == 'apply' || github.event_name == 'push' || github.event_name == 'pull_request'
-        run: terraform init
-
-      - name: Terraform Plan
-        if: github.event.inputs.action == 'apply' || github.event_name == 'push' || github.event_name == 'pull_request'
-        run: terraform plan
-
-      - name: Terraform Apply
-        if: (github.ref == 'refs/heads/main' && github.event.inputs.action == 'apply') || (github.ref == 'refs/heads/main' && github.event_name == 'push')
-        run: terraform apply -auto-approve
-
       - name: Deploy to EKS with ArgoCD
         if: github.event.inputs.action == 'apply'
         run: |
@@ -83,7 +71,7 @@ jobs:
           for i in {1..20}; do
             STATUS=$(aws eks describe-cluster --name ${{ secrets.CLUSTER_NAME }} --region ${{ secrets.AWS_REGION }} --query "cluster.status" --output text)
             if [ "$STATUS" = "ACTIVE" ]; then
-              echo "✅ Cluster is active."
+              echo " Cluster is active."
               break
             fi
             echo "⏳ Attempt $i/20: Cluster status=$STATUS, waiting 15 seconds..."
@@ -96,7 +84,7 @@ jobs:
           echo "Verifying kubectl access..."
           for i in {1..10}; do
             if kubectl get ns kube-system &> /dev/null; then
-              echo "✅ Connected to EKS cluster."
+              echo " Connected to EKS cluster."
               break
             fi
             echo "⏳ Attempt $i/10: kubectl API not ready, waiting 10 seconds..."
@@ -124,7 +112,7 @@ jobs:
           echo "Waiting for initial admin secret..."
           for i in {1..24}; do
             if kubectl get secret argocd-initial-admin-secret -n argocd &> /dev/null; then
-              echo "✅ Secret found!"
+              echo " Secret found!"
               break
             fi
             echo "Attempt $i/24: Secret not found yet, waiting 5 seconds..."
