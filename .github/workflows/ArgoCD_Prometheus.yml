@@ -1,4 +1,4 @@
-name: ArgoCD
+name: ArgoCD Deployment
 
 on:
   push:
