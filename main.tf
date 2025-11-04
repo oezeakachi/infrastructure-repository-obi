@@ -95,20 +95,125 @@ module "eks" {
   }
 }
 
-resource "aws_eks_access_entry" "user_access" {
+# Get current AWS account ID
+data "aws_caller_identity" "current" {}
+
+# IAM Role for EKS Administration with ENI cleanup permissions
+resource "aws_iam_role" "eks_admin" {
+  name = "eks-admin-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action = "sts:AssumeRole"
+        Condition = {
+          StringEquals = {
+            "sts:ExternalId" = "eks-admin-access"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name    = "eks-admin-role"
+    Purpose = "EKS cluster administration with cleanup permissions"
+  }
+}
+
+# IAM Policy for ENI and VPC management
+resource "aws_iam_policy" "eks_cleanup_policy" {
+  name        = "EKSCleanupPolicy"
+  description = "Allows management of ENIs and VPC resources for EKS cleanup"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ec2:DetachNetworkInterface",
+          "ec2:DeleteNetworkInterface",
+          "ec2:DescribeNetworkInterfaces",
+          "ec2:ModifyNetworkInterfaceAttribute",
+          "ec2:DescribeVpcs"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+# Attach ENI cleanup policy to the admin role
+resource "aws_iam_role_policy_attachment" "eks_admin_cleanup" {
+  role       = aws_iam_role.eks_admin.name
+  policy_arn = aws_iam_policy.eks_cleanup_policy.arn
+}
+
+# IAM Policy to allow users to assume the eks-admin role
+resource "aws_iam_policy" "assume_eks_admin_role" {
+  name        = "AssumeEKSAdminRole"
+  description = "Allow users to assume EKS admin role"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "sts:AssumeRole"
+        Resource = aws_iam_role.eks_admin.arn
+      }
+    ]
+  })
+}
+
+# Optional: Create an IAM group for EKS admins
+resource "aws_iam_group" "eks_admins" {
+  name = "eks-admins"
+}
+
+# Attach the assume role policy to the group
+resource "aws_iam_group_policy_attachment" "eks_admins_assume" {
+  group      = aws_iam_group.eks_admins.name
+  policy_arn = aws_iam_policy.assume_eks_admin_role.arn
+}
+
+# EKS Access Entry for the admin role
+resource "aws_eks_access_entry" "admin_role_access" {
   cluster_name  = module.eks.cluster_name
-  principal_arn = "arn:aws:iam::820242909862:user/open-environment-jdfdj-admin"
+  principal_arn = aws_iam_role.eks_admin.arn
   type          = "STANDARD"
 }
 
-resource "aws_eks_access_policy_association" "user_access_policy" {
+resource "aws_eks_access_policy_association" "admin_role_policy" {
   cluster_name  = module.eks.cluster_name
-  principal_arn = "arn:aws:iam::820242909862:user/open-environment-jdfdj-admin"
+  principal_arn = aws_iam_role.eks_admin.arn
   policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
 
   access_scope {
     type = "cluster"
   }
 
-  depends_on = [aws_eks_access_entry.user_access]
+  depends_on = [aws_eks_access_entry.admin_role_access]
+}
+
+# Outputs
+output "eks_admin_role_arn" {
+  description = "IAM role ARN for EKS admin access with cleanup permissions"
+  value       = aws_iam_role.eks_admin.arn
+}
+
+output "assume_role_command" {
+  description = "Command to assume the EKS admin role"
+  value       = "aws sts assume-role --role-arn ${aws_iam_role.eks_admin.arn} --role-session-name eks-admin-session --external-id eks-admin-access"
+}
+
+output "configure_kubectl_with_role" {
+  description = "Command to configure kubectl with the admin role"
+  value       = "aws eks update-kubeconfig --name ${module.eks.cluster_name} --region eu-west-1 --role-arn ${aws_iam_role.eks_admin.arn}"
 }
