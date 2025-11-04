@@ -7,6 +7,16 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Choose action: apply or destroy"
+        required: true
+        default: "apply"
+      confirm:
+        description: "Type the same word again to confirm"
+        required: true
+        default: "apply"
 
 jobs:
   terraform:
@@ -28,13 +38,38 @@ jobs:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ secrets.AWS_REGION }}
+          
+    # Confirm action
+    - name: Verify double confirmation
+      run: |
+        ACTION="${{ github.event.inputs.action }}"
+        CONFIRM="${{ github.event.inputs.confirm }}"
 
+        if [ "$ACTION" = "apply" ] && [ "$CONFIRM" != "apply" ]; then
+          echo "Confirmation failed: type 'apply' to proceed."
+          exit 1
+        elif [ "$ACTION" = "destroy" ] && [ "$CONFIRM" != "destroy" ]; then
+          echo "Confirmation failed: type 'destroy' to proceed."
+          exit 1
+        elif [ "$ACTION" != "apply" ] && [ "$ACTION" != "destroy" ]; then
+          echo "Invalid action. Must be 'apply' or 'destroy'."
+          exit 1
+        fi
+
+    # Apply Terraform script
     - name: Terraform Init
+      if: github.event.inputs.action == 'apply' || github.event_name == 'push' || github.event_name == 'pull_request'
       run: terraform init
 
     - name: Terraform Plan
+      if: github.event.inputs.action == 'apply' || github.event_name == 'push' || github.event_name == 'pull_request'
       run: terraform plan
 
     - name: Terraform Apply
-      if: github.ref == 'refs/heads/main'
+      if: (github.ref == 'refs/heads/main' && github.event.inputs.action == 'apply') || (github.ref == 'refs/heads/main' && github.event_name == 'push')
       run: terraform apply -auto-approve
+
+    # Destroy EKS Infra
+    - name: Destroy EKS and VPC
+      if: github.event.inputs.action == 'destroy'
+      run: terraform destroy -auto-approve
