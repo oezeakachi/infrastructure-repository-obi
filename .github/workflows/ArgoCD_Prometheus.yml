@@ -79,7 +79,7 @@ jobs:
           done
 
           echo "Updating kubeconfig for EKS cluster..."
-          aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name ${{ secrets.CLUSTER_NAME }} --role-arn ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name ${{ secrets.CLUSTER_NAME }}
 
           echo "Verifying kubectl access..."
           for i in {1..10}; do
