@@ -1,15 +1,14 @@
-# Define Terraform version and required providers
 terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
-    tls = {
-      source  = "hashicorp/tls"
-      version = "~> 4.0"
-    }
   }
+}
+
+provider "aws" {
+  region = "eu-west-1"
 }
 
 # 1. Get the OIDC Provider's TLS certificate thumbprint
