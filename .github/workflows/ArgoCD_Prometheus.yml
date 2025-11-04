@@ -79,16 +79,27 @@ jobs:
         run: |
           set -euo pipefail
 
-          echo "Updating kubeconfig for EKS cluster..."
-          aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name ${{ secrets.CLUSTER_NAME }}
+          echo "Waiting for EKS cluster to be ACTIVE..."
+          for i in {1..20}; do
+            STATUS=$(aws eks describe-cluster --name ${{ secrets.CLUSTER_NAME }} --region ${{ secrets.AWS_REGION }} --query "cluster.status" --output text)
+            if [ "$STATUS" = "ACTIVE" ]; then
+              echo "✅ Cluster is active."
+              break
+            fi
+            echo "⏳ Attempt $i/20: Cluster status=$STATUS, waiting 15 seconds..."
+            sleep 15
+          done
 
-          echo "Verifying access to EKS cluster..."
+          echo "Updating kubeconfig for EKS cluster..."
+          aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name ${{ secrets.CLUSTER_NAME }} --role-arn ${{ secrets.AWS_OIDC_ROLE_ARN }}
+
+          echo "Verifying kubectl access..."
           for i in {1..10}; do
             if kubectl get ns kube-system &> /dev/null; then
               echo "✅ Connected to EKS cluster."
               break
             fi
-            echo "⏳ Attempt $i/10: EKS API not ready yet, waiting 10 seconds..."
+            echo "⏳ Attempt $i/10: kubectl API not ready, waiting 10 seconds..."
             sleep 10
           done
 
@@ -110,7 +121,7 @@ jobs:
           echo "Waiting for ArgoCD application controller to be ready..."
           kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-application-controller -n argocd --timeout=300s
 
-          echo "Waiting for initial admin secret to be created..."
+          echo "Waiting for initial admin secret..."
           for i in {1..24}; do
             if kubectl get secret argocd-initial-admin-secret -n argocd &> /dev/null; then
               echo "✅ Secret found!"
