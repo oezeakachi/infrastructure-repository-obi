@@ -24,9 +24,9 @@ jobs:
     runs-on: ubuntu-latest
 
     # 🔑 MANDATORY: Required for OIDC authentication to generate the JWT
-  permissions:
-    id-token: write
-    contents: read 
+    permissions:
+      id-token: write
+      contents: read 
 
     steps:
       - name: Checkout Code
