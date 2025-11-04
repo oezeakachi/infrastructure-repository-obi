@@ -103,7 +103,7 @@ resource "aws_eks_access_entry" "user_access" {
 
 resource "aws_eks_access_policy_association" "user_access_policy" {
   cluster_name  = module.eks.cluster_name
-  principal_arn = "arn:aws:iam::820242909862>:user/open-environment-jdfdj-admin"
+  principal_arn = "arn:aws:iam::820242909862:user/open-environment-jdfdj-admin"
   policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
 
   access_scope {
