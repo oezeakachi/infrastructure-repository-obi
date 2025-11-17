@@ -53,7 +53,7 @@ resource "aws_subnet" "subnet_3" {
   map_public_ip_on_launch = true
 }
 
-# 1. Create the EKS Admin Role (OUTSIDE the module)
+# 1. Create the EKS Admin Role
 resource "aws_iam_role" "eks_admin_role" {
   name = "eks-admin-role"
 
@@ -64,7 +64,7 @@ resource "aws_iam_role" "eks_admin_role" {
         Action = "sts:AssumeRole"
         Effect = "Allow"
         Principal = {
-          AWS = var.user_id
+          AWS = var.user_id  # This uses your variable correctly
         }
       }
     ]
@@ -81,29 +81,11 @@ resource "aws_iam_role_policy_attachment" "eks_admin_cluster_policy" {
   role       = aws_iam_role.eks_admin_role.name
 }
 
-# 3. Allow your IAM user to assume this role
-resource "aws_iam_user_policy" "assume_eks_admin_role" {
-  name = "assume-eks-admin-role"
-  user = "open-environment-pt4n2-admin"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = "sts:AssumeRole"
-        Resource = aws_iam_role.eks_admin_role.arn
-      }
-    ]
-  })
-}
-
-# 5. Output the role ARN for easy reference
+# 3. Output the role ARN for easy reference
 output "eks_admin_role_arn" {
   description = "ARN of the EKS admin role - use this to assume the role"
   value       = aws_iam_role.eks_admin_role.arn
 }
-
 
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
@@ -136,7 +118,6 @@ module "eks" {
     }
   }
 
-  # 🎯 ADD THIS: Grant access to your EKS admin role
   enable_cluster_creator_admin_permissions = true
   
   access_entries = {
